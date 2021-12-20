@@ -1,0 +1,12 @@
+server:
+  port: 9000
+spring:
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://8.136.133.200:9710/myshop
+    username: root
+    password: aiwoyyf970921
+  redis:
+    host: 8.136.133.200
+    port: 6379
+
