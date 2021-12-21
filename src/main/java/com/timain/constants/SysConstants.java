@@ -8,5 +8,5 @@ package com.timain.constants;
  */
 public interface SysConstants {
 
-    String KEY_PREFIX = "redis:";
+    String KEY_PREFIX = "FA ";
 }

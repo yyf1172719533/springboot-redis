@@ -25,9 +25,19 @@ public class RoleServiceImpl implements RoleService {
      *
      * @return
      */
-    @RedisCache(expired = 60)
+    @RedisCache()
     @Override
     public List<Role> findList() {
         return this.roleMapper.selectList(null);
+    }
+
+    /**
+     * 添加角色
+     */
+    @RedisCache(read = false)
+    @Override
+    public void saveRole() {
+        Role role = new Role(3L, "测试", 2);
+        this.roleMapper.insert(role);
     }
 }

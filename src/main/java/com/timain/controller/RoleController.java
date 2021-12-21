@@ -26,4 +26,10 @@ public class RoleController {
         List<Role> roleList = this.roleService.findList();
         return "ok";
     }
+
+    @GetMapping("save")
+    public String save() {
+        this.roleService.saveRole();
+        return "success";
+    }
 }

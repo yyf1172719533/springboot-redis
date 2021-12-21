@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.util.DigestUtils;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +31,7 @@ public class RedisCacheAspect {
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
     @Autowired
-    private RedisTemplate redisTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 定义切点  使用了@RedisCache注解的方法
@@ -49,27 +50,35 @@ public class RedisCacheAspect {
         try {
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             RedisCache redisCache = signature.getMethod().getAnnotation(RedisCache.class);
-            if (null != redisCache && redisCache.read()) {
-                StringBuilder sb = new StringBuilder();
-                sb.append(joinPoint.getTarget().getClass().getName())
-                  .append(JSON.toJSONString(joinPoint.getArgs()))
-                  .append(joinPoint.getSignature().getName());
-                String key = SysConstants.KEY_PREFIX + Arrays.toString(MD5.create().digest(sb.toString()));
-
+            if (null == redisCache) {
+                return joinPoint.proceed();
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append(joinPoint.getTarget().getClass().getName());
+            String str = SysConstants.KEY_PREFIX + sb;
+            String key = DigestUtils.md5DigestAsHex(str.getBytes());
+            // 读操作
+            if (redisCache.read()) {
                 Object object = redisTemplate.opsForValue().get(key);
-                if (null == object) {
-                    LOGGER.info("====== redis缓存中不存在该key值，从数据库中查询，并保存到redis中 ======");
-                    object = joinPoint.proceed();
-                    if (null != object) {
-                        if (redisCache.expired() > 0) {
-                            redisTemplate.opsForValue().set(key, object, redisCache.expired(), TimeUnit.SECONDS);
-                        } else {
-                            redisTemplate.opsForValue().set(key, object);
-                        }
+                if (null != object) {
+                    LOGGER.info("====== 从redis缓存中取到数据 ======");
+                    return object;
+                }
+                LOGGER.info("====== redis缓存中不存在该key值，从数据库中查询，并保存到redis中 ======");
+                object = joinPoint.proceed();
+                if (null != object) {
+                    if (redisCache.expired() > 0) {
+                        redisTemplate.opsForValue().set(key, object, redisCache.expired(), TimeUnit.SECONDS);
+                    } else {
+                        redisTemplate.opsForValue().set(key, object);
                     }
                 }
                 return object;
             }
+            // 写操作
+            LOGGER.info("====== 操作数据，从redis中删除缓存 ======");
+            redisTemplate.delete(key);
+            return joinPoint.proceed();
         } catch (Throwable e) {
             LOGGER.error("====== RedisCache环绕通知执行异常：{} ======", e.getMessage());
         }
